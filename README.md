@@ -17,7 +17,7 @@ I build smooth, efficient tools using Python, Flask, servers, APIs, and low-leve
   </a>
 
   <a href="#favourite-projects" target="_self">
-    <img src="https://img.shields.io/badge/Favourite_Projects-4A90E2?style=for-the-badge&logo=star&logoColor=white" />
+    <img src="https://img.shields.io/badge/Favourite_Project-4A90E2?style=for-the-badge&logo=star&logoColor=white" />
   </a>
 
 </div>
@@ -55,12 +55,9 @@ I create modern UIs paired with robust backend logic:
 
 ---
 
-## ⭐ **Favourite Projects**
+## ⭐ **Favourite Project**
 <div id="favourite-projects"></div>
 
 ### **🌸[Danai](https://rusetiq.github.io/danai/")**
 Danai connects you with local charity organizations across all seven emirates. Discover volunteer opportunities, join community initiatives, and make a real impact in your neighborhood.
 
----
-### **💻[DIS Hackathon Platform](https://github.com/rusetiq/dishkplatform)**
-A hackathon platform made with Django, one of the projects I actually worked hard on.
