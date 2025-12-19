@@ -1,6 +1,6 @@
 <div align='center'>
   <h1>
-    <img src="https://raw.githubusercontent.com/rusetiq/rusetiq/main/rusetiqbanner.png" width="100%" alt="rusetiq" />
+    <img src="https://github.com/rusetiq/rusetiq/blob/main/rusetiqbanner.png?raw=true" width="100%" alt="rusetiq" />
   </h1>
 </div>
 
