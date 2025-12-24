@@ -63,18 +63,6 @@ I create modern UIs paired with robust backend logic:
 - Clean data-driven pages  
 - Minimalistic, responsive interfaces  
 
----
 
-## <img src="https://raw.githubusercontent.com/rusetiq/rusetiq/main/4.gif" width="40" /> Favourite Project
-<div id="favourite-projects"></div>
-
-<div align='center'>
-  <a href="https://rusetiq.github.io/danai/">
-    <img src="https://raw.githubusercontent.com/rusetiq/rusetiq/main/8.gif" alt="Danai" height="120" width='100%' align='center'/>
-  </a>
-  <br>
-  Danai connects you with local charity organizations across all seven emirates.  
-Discover volunteer opportunities, join community initiatives, and make a real impact in your neighborhood.
-</div>
 
 
