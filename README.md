@@ -18,11 +18,6 @@ I build smooth, efficient tools using Python, Flask, servers, APIs, and low-leve
   <a href="https://instagram.com/rusetiq" target="_blank">
     <img src="https://img.shields.io/badge/Instagram-Follow-ff0069?style=for-the-badge&logo=instagram&logoColor=white" />
   </a>
-
-  <a href="#favourite-projects" target="_self">
-    <img src="https://img.shields.io/badge/Favourite_Project-4A90E2?style=for-the-badge&logo=star&logoColor=white" />
-  </a>
-
 </div>
 
 
