@@ -1,0 +1,101 @@
+name: generate contribution graph
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require("fs")
+
+            const query = `
+              query($login: String!) {
+                user(login: $login) {
+                  contributionsCollection {
+                    contributionCalendar {
+                      weeks {
+                        contributionDays {
+                          contributionCount
+                          date
+                          weekday
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            `
+
+            const result = await github.graphql(query, {
+              login: context.repo.owner
+            })
+
+            const weeks = result.user.contributionsCollection.contributionCalendar.weeks
+            fs.mkdirSync("assets", { recursive: true })
+
+            const generate = (dark) => {
+              const size = 11
+              const gap = 3
+              const left = 0
+              const top = 0
+              const width = weeks.length * (size + gap)
+              const height = 7 * (size + gap)
+
+              const bg = dark ? "#0d1117" : "#ffffff"
+              const empty = dark ? "#161b22" : "#ebedf0"
+              const levels = dark
+                ? ["#0e4429", "#006d32", "#26a641", "#39d353"]
+                : ["#9be9a8", "#40c463", "#30a14e", "#216e39"]
+
+              let max = 0
+
+              for (const week of weeks) {
+                for (const day of week.contributionDays) {
+                  max = Math.max(max, day.contributionCount)
+                }
+              }
+
+              let rects = ""
+
+              weeks.forEach((week, x) => {
+                week.contributionDays.forEach(day => {
+                  let fill = empty
+
+                  if (day.contributionCount > 0 && max > 0) {
+                    const ratio = day.contributionCount / max
+                    const level = Math.min(3, Math.floor(ratio * 4))
+                    fill = levels[level]
+                  }
+
+                  rects += `<rect x="${left + x * (size + gap)}" y="${top + day.weekday * (size + gap)}" width="${size}" height="${size}" rx="2" fill="${fill}"><title>${day.date}: ${day.contributionCount} contributions</title></rect>`
+                })
+              })
+
+              return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img"><rect width="100%" height="100%" fill="${bg}"/>${rects}</svg>`
+            }
+
+            fs.writeFileSync("assets/contributions.light.svg", generate(false))
+            fs.writeFileSync("assets/contributions.dark.svg", generate(true))
+
+      - run: |
+          git config user.name "rusetiq"
+          git config user.email "stancedmediaae@gmail.com"
+          git add assets/contributions.light.svg assets/contributions.dark.svg
+          git diff --cached --quiet || git commit -m "update contribution graph"
+          git push
