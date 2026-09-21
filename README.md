@@ -83,7 +83,7 @@ basically a study management thing for keeping track of work, schedules and ever
 
 ---
 
-### eVisa Bharat
+### [eVisa Bharat](https://github.com/rusetiq/bwmi-evisa-bharat) (*for bwmi*)
 
 i looked at india's eVisa website and decided yeah i wanna redo this
 
@@ -103,7 +103,7 @@ very cool project go look at it
 
 ---
 
-### dishkv2
+### [dishkv2](https://github.com/rusetiq/dishkv2)
 
 we needed something to run hackathons
 
