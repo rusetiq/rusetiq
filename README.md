@@ -61,6 +61,18 @@ rn im working on **[vithi](https://vithistudy.web.app/)**
 
 ## <img src="https://raw.githubusercontent.com/rusetiq/rusetiq/main/4.gif" width="40" /> stuff ive made
 
+### [rippl](https://rippl.aarush-uae.workers.dev/app)
+
+built this to make everyday sustainable choices a little easier to stick with
+
+log an action, upload photo evidence and let gemini check it. tracks estimated carbon and water savings, streaks, badges and points, with a community feed and rewards
+
+`React` `TypeScript` `Cloudflare Workers` `D1` `R2` `Firebase Auth` `Gemini`
+
+[source code](https://github.com/rusetiq/rippl)
+
+---
+
 ### [vithi](https://vithistudy.web.app/)
 
 made this cuz apparently keeping track of school normally wasnt complicated enough
