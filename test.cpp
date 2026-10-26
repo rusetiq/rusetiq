@@ -46,7 +46,7 @@ const unsigned long PUMP_COOLDOWN_MS =
 // -----------------------------------
 
 DHT dht(DHT_PIN, DHT11); // blue DHT11 sensor
-Adafruit_SSD1306 oled(128, 64, &Wire, -1);
+Adafruit_SSD1306 oled(128, 32, &Wire, -1);
 SoftwareSerial esp(ESP_RX, ESP_TX);
 
 bool oledReady = false;
