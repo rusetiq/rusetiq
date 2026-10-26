@@ -49,6 +49,8 @@ DHT dht(DHT_PIN, DHT11); // blue DHT11 sensor
 LiquidCrystal_I2C lcd(LCD_ADDR, 16, 2);
 SoftwareSerial esp(ESP_RX, ESP_TX);
 
+bool lcdFound = false;
+
 bool pumpAuto = true, lampAuto = HAS_LAMP;
 int moThreshold = 35, lightThreshold = 300;
 unsigned long pumpOnSince = 0, pumpBlockedUntil = 0;
@@ -376,8 +378,6 @@ void runAutomation() {
     setRelay(LAMP_PIN, on ? li < lightThreshold + 300 : li < lightThreshold);
   }
 }
-
-bool lcdFound = false;
 
 void initLcdSafe() {
   Wire.begin();
