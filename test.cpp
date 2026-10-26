@@ -7,10 +7,8 @@
 //   Soil sensor AO      -> A0
 //   Light sensor AO     -> A1   (optional)
 //   DHT11 S pin         -> D4
-//   Pump driver gate    -> D7   (through a 220 ohm resistor, MOSFET/transistor driver)
-//   Wi-Fi adapter TX    -> D2
-//   Wi-Fi adapter RX    -> D3
-//   LCD SDA             -> A4
+//   Pump driver gate    -> D7   (through a 220 ohm resistor, MOSFET/transistor
+//   driver) Wi-Fi adapter TX    -> D2 Wi-Fi adapter RX    -> D3 LCD SDA -> A4
 //   LCD SCK (SCL)       -> A5
 //   USB Serial Monitor  -> Hardware USB (9600 baud)
 // All parts also need 5V and GND (see the breadboard power diagram).
@@ -32,8 +30,9 @@ const int LED_PIN = LED_BUILTIN; // blinks when a command is processed
 const bool HAS_LAMP = false; // keep false: nothing is connected to pin 8
 
 const int ESP_RX = 2; // Uno pin 2 <- Wi-Fi adapter TX
-const int ESP_TX = 3; // Uno pin 3 -> Wi-Fi adapter RX
-                      // (use a voltage divider here only if your adapter has no level shifter)
+const int ESP_TX =
+    3; // Uno pin 3 -> Wi-Fi adapter RX
+       // (use a voltage divider here only if your adapter has no level shifter)
 
 const int SOIL_DRY = 600; // reading with sensor in dry air
 const int SOIL_WET = 300; // reading with sensor in a glass of water
@@ -76,9 +75,7 @@ void setRelay(int pin, bool on) {
   digitalWrite(pin, (on != RELAY_ACTIVE_LOW) ? HIGH : LOW);
 }
 
-bool relayOn(int pin) {
-  return (digitalRead(pin) == HIGH) != RELAY_ACTIVE_LOW;
-}
+bool relayOn(int pin) { return (digitalRead(pin) == HIGH) != RELAY_ACTIVE_LOW; }
 
 bool lampOn() { // always false when there is no lamp
   return HAS_LAMP && relayOn(LAMP_PIN);
@@ -130,8 +127,9 @@ void lcdLine(int row, const char *text) {
 }
 
 void updateLcd() {
-  char a[24], b[24];
   readDht();
+  if (!lcdFound) return; // Skip if LCD is not connected
+  char a[24], b[24];
   if ((long)(ipUntil - millis()) > 0) { // show the address for 10 seconds
     lcdLine(0, "Open in browser:");
     lcdLine(1, ip);
@@ -158,7 +156,7 @@ void updateLcd() {
 void setNote(const char *text) {
   snprintf(note, sizeof(note), "%s", text);
   noteUntil = millis() + 3000;
-  updateLcd();
+  if (lcdFound) updateLcd();
 }
 
 // ---------- Telemetry (ESP-01 & USB Serial Monitor at 9600 baud) ----------
@@ -335,7 +333,8 @@ void readSerial() {
   }
 }
 
-// Runs on the Arduino, so watering keeps working even if the Wi-Fi or app drops.
+// Runs on the Arduino, so watering keeps working even if the Wi-Fi or app
+// drops.
 void runAutomation() {
   bool pumpIsOn = relayOn(PUMP_PIN);
 
@@ -344,12 +343,13 @@ void runAutomation() {
     pumpBlocked = true;
     pumpBlockedUntil = millis() + PUMP_COOLDOWN_MS;
     pumpIsOn = false;
-    Serial.println(
-        F("[SAFETY] Max pump runtime (60s) reached! Pump halted & cooling down."));
+    Serial.println(F("[SAFETY] Max pump runtime (60s) reached! Pump halted & "
+                     "cooling down."));
   }
   if (pumpBlocked && (long)(millis() - pumpBlockedUntil) >= 0) {
     pumpBlocked = false;
-    Serial.println(F("[SAFETY] Pump cooldown period finished. Pump re-enabled."));
+    Serial.println(
+        F("[SAFETY] Pump cooldown period finished. Pump re-enabled."));
   }
 
   if (pumpAuto) {
@@ -377,8 +377,44 @@ void runAutomation() {
   }
 }
 
+bool lcdFound = false;
+
+void initLcdSafe() {
+  Wire.begin();
+  Wire.setWireTimeout(25000, true); // 25ms timeout so I2C never freezes the Arduino
+
+  Serial.println(F("[I2C] Scanning for LCD..."));
+  byte detectedAddr = 0;
+
+  // Check specified address first, then scan standard I2C addresses
+  byte addrs[] = {LCD_ADDR, 0x27, 0x3F};
+  for (byte i = 0; i < sizeof(addrs); i++) {
+    Wire.beginTransmission(addrs[i]);
+    if (Wire.endTransmission() == 0) {
+      detectedAddr = addrs[i];
+      break;
+    }
+  }
+
+  if (detectedAddr != 0) {
+    Serial.print(F("[I2C] LCD detected at address 0x"));
+    Serial.println(detectedAddr, HEX);
+    lcd = LiquidCrystal_I2C(detectedAddr, 16, 2);
+    lcd.init();
+    lcd.backlight();
+    lcdFound = true;
+    lcdLine(0, "AquaSense");
+    lcdLine(1, "Starting...");
+  } else {
+    Serial.println(F("[I2C] WARNING: No LCD responding at 0x27 or 0x3F."));
+    Serial.println(F("[I2C] Continuing without LCD (system will NOT freeze)."));
+    lcdFound = false;
+  }
+}
+
 void setup() {
   Serial.begin(9600);
+  delay(100);
   Serial.println(F("\n========================================"));
   Serial.println(F("       AquaSense Controller v1.0        "));
   Serial.println(F("   Telemetry & Debug Port: 9600 baud    "));
@@ -391,21 +427,22 @@ void setup() {
     pinMode(LAMP_PIN, OUTPUT);
     setRelay(LAMP_PIN, false);
   }
-  dht.begin();
-  lcd.init();
-  lcd.backlight();
-  lcdLine(0, "AquaSense");
-  lcdLine(1, "Starting...");
-  esp.begin(9600);
-  delay(1500);
 
-  Serial.println(F("[BOOT] LCD, DHT11, and ESP-01 (SoftwareSerial) initialized."));
-  Serial.print(F("[BOOT] Moisture Trigger Threshold: <"));
+  Serial.println(F("[BOOT] Initializing DHT11 on Pin 4..."));
+  dht.begin();
+
+  Serial.println(F("[BOOT] Initializing LCD..."));
+  initLcdSafe();
+
+  Serial.println(F("[BOOT] Initializing ESP-01 on Pins 2/3 (9600 baud)..."));
+  esp.begin(9600);
+  delay(500);
+
+  Serial.println(F("[BOOT] System initialization complete!"));
+  Serial.print(F("[BOOT] Moisture Threshold: <"));
   Serial.print(moThreshold);
   Serial.println(F("%"));
-  Serial.print(F("[BOOT] Light Trigger Threshold: <"));
-  Serial.println(lightThreshold);
-  Serial.println(F("[BOOT] Setup complete. Listening for telemetry & commands..."));
+  Serial.println(F("[BOOT] Streaming sensor telemetry below...\n"));
 }
 
 void loop() {
