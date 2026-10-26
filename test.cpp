@@ -13,8 +13,7 @@
 //   USB Serial Monitor  -> Hardware USB (9600 baud)
 // All parts also need 5V and GND (see the breadboard power diagram).
 
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
+#include <U8g2lib.h>
 #include <DHT.h>
 #include <SoftwareSerial.h>
 #include <Wire.h>
@@ -38,7 +37,6 @@ const int SOIL_DRY = 600; // reading with sensor in dry air
 const int SOIL_WET = 300; // reading with sensor in a glass of water
 const bool RELAY_ACTIVE_LOW =
     false; // false for a MOSFET or transistor driver (HIGH = pump on)
-const uint8_t OLED_ADDR = 0x3C; // If blank, try 0x3D
 
 const unsigned long PUMP_MAX_MS = 60000UL; // pump never runs longer than this
 const unsigned long PUMP_COOLDOWN_MS =
@@ -46,7 +44,8 @@ const unsigned long PUMP_COOLDOWN_MS =
 // -----------------------------------
 
 DHT dht(DHT_PIN, DHT11); // blue DHT11 sensor
-Adafruit_SSD1306 oled(128, 32, &Wire, -1);
+// U8g2 page-buffer mode: Uses only ~128 bytes of RAM!
+U8G2_SSD1306_128X64_NONAME_1_HW_I2C oled(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
 SoftwareSerial esp(ESP_RX, ESP_TX);
 
 bool oledReady = false;
@@ -120,19 +119,16 @@ void blinkLed() {
   digitalWrite(LED_PIN, LOW);
 }
 
-// ---------- 0.96-inch OLED ----------
+// ---------- 0.96-inch OLED (U8g2) ----------
 void showOledLines(const char *line1, const char *line2) {
   if (!oledReady)
     return;
-  oled.clearDisplay();
-  oled.setTextSize(1);
-  oled.setTextColor(SSD1306_WHITE);
-  oled.setTextWrap(false);
-  oled.setCursor(0, 0);
-  oled.print(line1);
-  oled.setCursor(0, 16);
-  oled.print(line2);
-  oled.display();
+  oled.firstPage();
+  do {
+    oled.setFont(u8g2_font_ncenB08_tr); // Clean, readable font
+    oled.drawStr(0, 18, line1);
+    oled.drawStr(0, 42, line2);
+  } while (oled.nextPage());
 }
 
 void updateLcd() {
@@ -388,17 +384,11 @@ void runAutomation() {
 }
 
 void initOled() {
-  Wire.begin();
-  Wire.setWireTimeout(25000, true);
-  Serial.println(F("[OLED] Initializing SSD1306 at 0x3C..."));
-  if (!oled.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) {
-    Serial.println(F("[OLED] Display buffer allocation failed."));
-    oledReady = false;
-    return;
-  }
+  Serial.println(F("[OLED] Initializing SSD1306 via U8g2 (page buffer mode)..."));
+  oled.begin();
   oledReady = true;
   showOledLines("AquaSense", "Starting...");
-  Serial.println(F("[OLED] Initialized."));
+  Serial.println(F("[OLED] Initialized successfully."));
 }
 
 void setup() {
