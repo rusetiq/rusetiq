@@ -13,11 +13,11 @@
 //   USB Serial Monitor  -> Hardware USB (9600 baud)
 // All parts also need 5V and GND (see the breadboard power diagram).
 
-#include <DHT.h>               // install "DHT sensor library" by Adafruit
-#include <LiquidCrystal_I2C.h> // install "LiquidCrystal I2C" by Frank de Brabander
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <DHT.h>
 #include <SoftwareSerial.h>
 #include <Wire.h>
-// (also install "Adafruit Unified Sensor" if asked)
 
 // ---------- 1. EDIT THESE ----------
 const int SOIL_PIN = A0;
@@ -38,7 +38,7 @@ const int SOIL_DRY = 600; // reading with sensor in dry air
 const int SOIL_WET = 300; // reading with sensor in a glass of water
 const bool RELAY_ACTIVE_LOW =
     false; // false for a MOSFET or transistor driver (HIGH = pump on)
-const int LCD_ADDR = 0x27; // try 0x3F if the screen stays blank
+const uint8_t OLED_ADDR = 0x3C; // If blank, try 0x3D
 
 const unsigned long PUMP_MAX_MS = 60000UL; // pump never runs longer than this
 const unsigned long PUMP_COOLDOWN_MS =
@@ -46,10 +46,10 @@ const unsigned long PUMP_COOLDOWN_MS =
 // -----------------------------------
 
 DHT dht(DHT_PIN, DHT11); // blue DHT11 sensor
-LiquidCrystal_I2C lcd(LCD_ADDR, 16, 2);
+Adafruit_SSD1306 oled(128, 64, &Wire, -1);
 SoftwareSerial esp(ESP_RX, ESP_TX);
 
-bool lcdFound = false;
+bool oledReady = false;
 
 bool pumpAuto = true, lampAuto = HAS_LAMP;
 int moThreshold = 35, lightThreshold = 300;
@@ -120,46 +120,52 @@ void blinkLed() {
   digitalWrite(LED_PIN, LOW);
 }
 
-// ---------- LCD ----------
-void lcdLine(int row, const char *text) {
-  char out[17];
-  snprintf(out, sizeof(out), "%-16s", text);
-  lcd.setCursor(0, row);
-  lcd.print(out);
+// ---------- 0.96-inch OLED ----------
+void showOledLines(const char *line1, const char *line2) {
+  if (!oledReady)
+    return;
+  oled.clearDisplay();
+  oled.setTextSize(1);
+  oled.setTextColor(SSD1306_WHITE);
+  oled.setTextWrap(false);
+  oled.setCursor(0, 0);
+  oled.print(line1);
+  oled.setCursor(0, 16);
+  oled.print(line2);
+  oled.display();
 }
 
 void updateLcd() {
   readDht();
-  if (!lcdFound)
-    return; // Skip if LCD is not connected
-  char a[24], b[24];
-  if ((long)(ipUntil - millis()) > 0) { // show the address for 10 seconds
-    lcdLine(0, "Open in browser:");
-    lcdLine(1, ip);
+  if (!oledReady)
+    return;
+  char a[24];
+  char b[24];
+  if ((long)(ipUntil - millis()) > 0) {
+    showOledLines("Open in browser:", ip);
     return;
   }
   snprintf(a, sizeof(a), "M%3d%% T%2d H%2d%%", readMoisture(), (int)lastT,
            (int)lastH);
   if ((long)(noteUntil - millis()) > 0) {
-    snprintf(b, sizeof(b), "%s", note); // last app command, 3 seconds
+    snprintf(b, sizeof(b), "%s", note);
   } else if (ip[0] == 0 && millis() < 40000UL) {
     snprintf(b, sizeof(b), "Wi-Fi: waiting..");
   } else if (HAS_LAMP) {
-    snprintf(b, sizeof(b), "P:%-3s%c L:%-3s%c",
-             relayOn(PUMP_PIN) ? "ON" : "OFF", pumpAuto ? 'A' : 'M',
-             lampOn() ? "ON" : "OFF", lampAuto ? 'A' : 'M');
-  } else { // no lamp: show the light reading instead
-    snprintf(b, sizeof(b), "P:%-3s%c Lt:%4d", relayOn(PUMP_PIN) ? "ON" : "OFF",
+    snprintf(b, sizeof(b), "P:%s%c L:%s%c", relayOn(PUMP_PIN) ? "ON" : "OFF",
+             pumpAuto ? 'A' : 'M', lampOn() ? "ON" : "OFF",
+             lampAuto ? 'A' : 'M');
+  } else {
+    snprintf(b, sizeof(b), "P:%s%c Lt:%d", relayOn(PUMP_PIN) ? "ON" : "OFF",
              pumpAuto ? 'A' : 'M', readLight());
   }
-  lcdLine(0, a);
-  lcdLine(1, b);
+  showOledLines(a, b);
 }
 
 void setNote(const char *text) {
   snprintf(note, sizeof(note), "%s", text);
   noteUntil = millis() + 3000;
-  if (lcdFound)
+  if (oledReady)
     updateLcd();
 }
 
@@ -381,51 +387,18 @@ void runAutomation() {
   }
 }
 
-void initLcdSafe() {
+void initOled() {
   Wire.begin();
-  Wire.setClock(100000);
-
-  Serial.println(F("[I2C] Scanning addresses..."));
-  byte detectedAddr = 0;
-
-  // Try the common LCD backpack addresses first.
-  const byte commonAddresses[] = {0x27, 0x3F};
-  for (byte i = 0; i < sizeof(commonAddresses); i++) {
-    Wire.beginTransmission(commonAddresses[i]);
-    if (Wire.endTransmission() == 0) {
-      detectedAddr = commonAddresses[i];
-      break;
-    }
-  }
-
-  // If neither responds, scan the rest of the usable I2C range.
-  if (detectedAddr == 0) {
-    for (byte addr = 0x08; addr <= 0x77; addr++) {
-      Wire.beginTransmission(addr);
-      if (Wire.endTransmission() == 0) {
-        detectedAddr = addr;
-        break;
-      }
-    }
-  }
-
-  if (detectedAddr == 0) {
-    Serial.println(F("[I2C] No device responded."));
-    Serial.println(F("[I2C] Check LCD SDA=A4, SCL=A5, 5V and GND."));
-    lcdFound = false;
+  Wire.setWireTimeout(25000, true);
+  Serial.println(F("[OLED] Initializing SSD1306 at 0x3C..."));
+  if (!oled.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) {
+    Serial.println(F("[OLED] Display buffer allocation failed."));
+    oledReady = false;
     return;
   }
-
-  Serial.print(F("[I2C] Device found at 0x"));
-  Serial.println(detectedAddr, HEX);
-
-  lcd = LiquidCrystal_I2C(detectedAddr, 16, 2);
-  lcd.init();
-  lcd.backlight();
-  lcdFound = true;
-
-  lcdLine(0, "AquaSense");
-  lcdLine(1, "Starting...");
+  oledReady = true;
+  showOledLines("AquaSense", "Starting...");
+  Serial.println(F("[OLED] Initialized."));
 }
 
 void setup() {
@@ -447,8 +420,8 @@ void setup() {
   Serial.println(F("[BOOT] Initializing DHT11 on Pin 4..."));
   dht.begin();
 
-  Serial.println(F("[BOOT] Initializing LCD..."));
-  initLcdSafe();
+  Serial.println(F("[BOOT] Initializing OLED..."));
+  initOled();
 
   Serial.println(F("[BOOT] Initializing ESP-01 on Pins 2/3 (9600 baud)..."));
   esp.begin(9600);
