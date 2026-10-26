@@ -130,7 +130,8 @@ void lcdLine(int row, const char *text) {
 
 void updateLcd() {
   readDht();
-  if (!lcdFound) return; // Skip if LCD is not connected
+  if (!lcdFound)
+    return; // Skip if LCD is not connected
   char a[24], b[24];
   if ((long)(ipUntil - millis()) > 0) { // show the address for 10 seconds
     lcdLine(0, "Open in browser:");
@@ -158,7 +159,8 @@ void updateLcd() {
 void setNote(const char *text) {
   snprintf(note, sizeof(note), "%s", text);
   noteUntil = millis() + 3000;
-  if (lcdFound) updateLcd();
+  if (lcdFound)
+    updateLcd();
 }
 
 // ---------- Telemetry (ESP-01 & USB Serial Monitor at 9600 baud) ----------
@@ -381,35 +383,49 @@ void runAutomation() {
 
 void initLcdSafe() {
   Wire.begin();
-  Wire.setWireTimeout(25000, true); // 25ms timeout so I2C never freezes the Arduino
+  Wire.setClock(100000);
 
-  Serial.println(F("[I2C] Scanning for LCD..."));
+  Serial.println(F("[I2C] Scanning addresses..."));
   byte detectedAddr = 0;
 
-  // Check specified address first, then scan standard I2C addresses
-  byte addrs[] = {LCD_ADDR, 0x27, 0x3F};
-  for (byte i = 0; i < sizeof(addrs); i++) {
-    Wire.beginTransmission(addrs[i]);
+  // Try the common LCD backpack addresses first.
+  const byte commonAddresses[] = {0x27, 0x3F};
+  for (byte i = 0; i < sizeof(commonAddresses); i++) {
+    Wire.beginTransmission(commonAddresses[i]);
     if (Wire.endTransmission() == 0) {
-      detectedAddr = addrs[i];
+      detectedAddr = commonAddresses[i];
       break;
     }
   }
 
-  if (detectedAddr != 0) {
-    Serial.print(F("[I2C] LCD detected at address 0x"));
-    Serial.println(detectedAddr, HEX);
-    lcd = LiquidCrystal_I2C(detectedAddr, 16, 2);
-    lcd.init();
-    lcd.backlight();
-    lcdFound = true;
-    lcdLine(0, "AquaSense");
-    lcdLine(1, "Starting...");
-  } else {
-    Serial.println(F("[I2C] WARNING: No LCD responding at 0x27 or 0x3F."));
-    Serial.println(F("[I2C] Continuing without LCD (system will NOT freeze)."));
-    lcdFound = false;
+  // If neither responds, scan the rest of the usable I2C range.
+  if (detectedAddr == 0) {
+    for (byte addr = 0x08; addr <= 0x77; addr++) {
+      Wire.beginTransmission(addr);
+      if (Wire.endTransmission() == 0) {
+        detectedAddr = addr;
+        break;
+      }
+    }
   }
+
+  if (detectedAddr == 0) {
+    Serial.println(F("[I2C] No device responded."));
+    Serial.println(F("[I2C] Check LCD SDA=A4, SCL=A5, 5V and GND."));
+    lcdFound = false;
+    return;
+  }
+
+  Serial.print(F("[I2C] Device found at 0x"));
+  Serial.println(detectedAddr, HEX);
+
+  lcd = LiquidCrystal_I2C(detectedAddr, 16, 2);
+  lcd.init();
+  lcd.backlight();
+  lcdFound = true;
+
+  lcdLine(0, "AquaSense");
+  lcdLine(1, "Starting...");
 }
 
 void setup() {
